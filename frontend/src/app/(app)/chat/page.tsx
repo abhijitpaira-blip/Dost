@@ -3,8 +3,8 @@
 import { FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useSpeechRecognition } from "@/lib/voice/useSpeechRecognition";
-import { speak } from "@/lib/voice/speak";
-import { useProfileAge } from "@/lib/profile/useProfileAge";
+import { speak, stopSpeaking } from "@/lib/voice/speak";
+import { useProfile } from "@/lib/profile/useProfile";
 
 // (app)/layout.tsx redirects anyone without onboarding_completed_at to
 // /onboarding before they can reach this page, so getting here means
@@ -15,11 +15,6 @@ interface Message {
   content: string;
 }
 
-// Hardcoded until language selection exists in onboarding (see
-// services/ai/prompts/onboarding_and_consent.md) — threading it through
-// here now means that's a one-line change later, not a new feature.
-const LANGUAGE = "english";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function ChatPage() {
@@ -29,10 +24,13 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [voiceRepliesOn, setVoiceRepliesOn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // "english" until the profile loads — useSpeechRecognition/speak() both
+  // default to English too, so mic/voice-reply just briefly assume English
+  // for the instant before the real preferred_language (set in
+  // /onboarding) comes back.
+  const { age, language } = useProfile();
   const { supported: micSupported, listening, error: micError, start: startListening, stop: stopListening } =
-    useSpeechRecognition(LANGUAGE);
-  const { age } = useProfileAge();
+    useSpeechRecognition(language);
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -70,13 +68,12 @@ export default function ChatPage() {
       setMessages([...nextMessages, { role: "assistant", content: data.reply }]);
 
       if (voiceRepliesOn) {
-        currentAudioRef.current?.pause();
-        try {
-          currentAudioRef.current = await speak(data.reply, LANGUAGE);
-        } catch {
-          // Voice playback failing shouldn't block the (already-shown) text
-          // reply — DOST just stays silent for this turn.
-        }
+        // speak() cancels any speech already in progress before starting —
+        // no need to stop it ourselves first.
+        await speak(data.reply, language);
+        // Not checking the result here on purpose: if voice replies aren't
+        // supported in this browser, DOST just stays silent for this turn
+        // rather than blocking the (already-shown) text reply.
       }
     } catch {
       setError("Couldn't reach DOST just now — check the backend is running and try again.");
@@ -113,7 +110,15 @@ export default function ChatPage() {
         </div>
         <button
           type="button"
-          onClick={() => setVoiceRepliesOn((v) => !v)}
+          onClick={() => {
+            setVoiceRepliesOn((v) => {
+              const next = !v;
+              // Turning voice off should also stop whatever's playing right
+              // now, not just skip future replies.
+              if (!next) stopSpeaking();
+              return next;
+            });
+          }}
           aria-pressed={voiceRepliesOn}
           className={`shrink-0 rounded-full px-3 py-2 font-body text-xs transition-colors ${
             voiceRepliesOn
