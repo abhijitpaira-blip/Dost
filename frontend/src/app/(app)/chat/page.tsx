@@ -4,6 +4,7 @@ import { FormEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useSpeechRecognition } from "@/lib/voice/useSpeechRecognition";
 import { speak } from "@/lib/voice/speak";
+import { useProfileAge } from "@/lib/profile/useProfileAge";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,6 +28,24 @@ export default function ChatPage() {
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const { supported: micSupported, listening, error: micError, start: startListening, stop: stopListening } =
     useSpeechRecognition(LANGUAGE);
+  const { age, loading: ageLoading, signedIn, setAge } = useProfileAge();
+  const [ageInput, setAgeInput] = useState("");
+  const [ageSaveError, setAgeSaveError] = useState<string | null>(null);
+  const [savingAge, setSavingAge] = useState(false);
+
+  async function handleSaveAge(e: FormEvent) {
+    e.preventDefault();
+    const parsed = Number(ageInput);
+    if (!Number.isInteger(parsed) || parsed < 5 || parsed > 120) {
+      setAgeSaveError("Enter an age between 5 and 120.");
+      return;
+    }
+    setSavingAge(true);
+    setAgeSaveError(null);
+    const { error: saveError } = await setAge(parsed);
+    setSavingAge(false);
+    if (saveError) setAgeSaveError(saveError);
+  }
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -39,10 +58,16 @@ export default function ChatPage() {
     setSending(true);
 
     try {
+      // `age` is included only once we actually have it — an omitted field
+      // makes the backend fall back to the flat, all-ages DOST_SYSTEM_PROMPT
+      // (see backend/app/api/v1/chat.py), never a wrong age band.
+      const body: { messages: Message[]; age?: number } = { messages: nextMessages };
+      if (age != null) body.age = age;
+
       const res = await fetch(`${API_URL}/api/v1/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -108,6 +133,34 @@ export default function ChatPage() {
           {voiceRepliesOn ? "🔊 Voice on" : "🔈 Voice off"}
         </button>
       </div>
+
+      {signedIn && !ageLoading && age == null && (
+        <form
+          onSubmit={handleSaveAge}
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-linen-200 bg-linen-100 px-4 py-3"
+        >
+          <p className="font-body text-sm text-ink-700">
+            How old are you? This helps DOST talk to you the right way.
+          </p>
+          <input
+            type="number"
+            min={5}
+            max={120}
+            value={ageInput}
+            onChange={(e) => setAgeInput(e.target.value)}
+            placeholder="Age"
+            className="w-20 rounded-lg border border-linen-200 bg-linen-50 px-2 py-1 font-body text-ink-800 focus-visible:outline-2 focus-visible:outline-amber-500"
+          />
+          <Button type="submit" variant="secondary" disabled={savingAge || !ageInput}>
+            {savingAge ? "Saving…" : "Save"}
+          </Button>
+          {ageSaveError && (
+            <p role="alert" className="w-full font-body text-xs text-clay-500">
+              {ageSaveError}
+            </p>
+          )}
+        </form>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto py-2">
         {messages.length === 0 && (
