@@ -3,6 +3,8 @@ Central settings object. Everything the backend needs from the environment
 comes through here — nothing reads os.environ directly elsewhere, so a
 missing/misnamed env var fails fast and in one place.
 """
+from __future__ import annotations
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

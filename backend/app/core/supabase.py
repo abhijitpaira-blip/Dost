@@ -4,6 +4,8 @@ This client bypasses Row Level Security — it must never be exposed to the
 frontend and must only be used behind an endpoint that has already
 authenticated the caller (Phase 2+: verifying the user's Supabase JWT).
 """
+from __future__ import annotations
+
 from functools import lru_cache
 
 from supabase import Client, create_client

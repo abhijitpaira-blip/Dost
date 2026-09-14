@@ -8,11 +8,9 @@ SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=replace-me   # secret. server-side only. bypasses RLS.
 SUPABASE_JWT_SECRET=replace-me         # Project Settings → API → JWT Secret. Used to verify user tokens.
 
-# --- AI provider (Phase 2) — modular: set AI_PROVIDER to switch, only the
-# matching key below needs a real value. ---
-AI_PROVIDER=anthropic                  # anthropic | openai
-ANTHROPIC_API_KEY=replace-me           # required when AI_PROVIDER=anthropic
-# OPENAI_API_KEY=                      # required when AI_PROVIDER=openai
+# --- AI provider(s) — wired up in a later phase, keys live here when they arrive ---
+# AI_PROVIDER=anthropic
+# ANTHROPIC_API_KEY=
 
 # --- Voice (Speechma) — wired up in a later phase ---
 # SPEECHMA_API_KEY=

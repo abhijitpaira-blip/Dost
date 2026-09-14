@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Only "Home" is wired to a real screen in Phase 1. The rest are placeholders
-// for features that ship in later phases (chat, coach, progress, profile).
+// Home and Talk are wired to real screens as of Phase 2. Coach and You are
+// still placeholders for later phases.
 const items = [
   { href: "/dashboard", label: "Home" },
-  { href: "/dashboard", label: "Talk" },
+  { href: "/chat", label: "Talk" },
   { href: "/dashboard", label: "Coach" },
   { href: "/dashboard", label: "You" },
 ];
@@ -18,8 +18,8 @@ export function BottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 border-t border-linen-200 bg-linen-50/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md justify-between px-6 py-3 sm:max-w-lg">
-        {items.map((item, i) => {
-          const active = i === 0 && pathname === item.href;
+        {items.map((item) => {
+          const active = pathname === item.href;
           return (
             <li key={item.label}>
               <Link
