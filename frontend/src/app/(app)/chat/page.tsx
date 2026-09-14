@@ -1,10 +1,12 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useSpeechRecognition } from "@/lib/voice/useSpeechRecognition";
 import { speak, stopSpeaking } from "@/lib/voice/speak";
 import { useProfile } from "@/lib/profile/useProfile";
+import { useChatHistory } from "@/lib/chat/useChatHistory";
+import { createClient } from "@/lib/supabase/client";
 
 // (app)/layout.tsx redirects anyone without onboarding_completed_at to
 // /onboarding before they can reach this page, so getting here means
@@ -31,6 +33,19 @@ export default function ChatPage() {
   const { age, language } = useProfile();
   const { supported: micSupported, listening, error: micError, start: startListening, stop: stopListening } =
     useSpeechRecognition(language);
+  const { history, loading: historyLoading } = useChatHistory();
+  const historyAppliedRef = useRef(false);
+
+  // Apply the loaded conversation once, and only if the user hasn't
+  // already started typing/sending in the brief window before it
+  // resolves — an unlikely race, but overwriting an in-progress send
+  // would be a worse bug than a rare no-op here.
+  useEffect(() => {
+    if (!historyLoading && !historyAppliedRef.current) {
+      historyAppliedRef.current = true;
+      if (history.length > 0) setMessages(history);
+    }
+  }, [historyLoading, history]);
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -54,9 +69,21 @@ export default function ChatPage() {
       };
       if (age != null) body.age = age;
 
+      // Included when we have a session so the backend can save this turn
+      // (services.memory.save_turn, see chat.py) — omitted entirely just
+      // means this turn isn't remembered, chat still works either way.
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch(`${API_URL}/api/v1/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(body),
       });
 

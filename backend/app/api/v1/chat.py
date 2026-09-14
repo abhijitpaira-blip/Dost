@@ -1,9 +1,17 @@
 """
 POST /api/v1/chat — send a conversation to DOST, get a reply back.
 
-No persistence in this phase: the frontend sends the whole message history
-on every request, and nothing is written to the database. That's Phase 3
-(services/memory).
+Persistence (Phase 3): if the caller sends a valid Supabase access token
+(`Authorization: Bearer <token>`), the latest user message and DOST's
+reply are saved to public.messages via services.memory.save_turn() — see
+database/migrations/0003_messages.sql. No token, or an invalid one, just
+means this turn isn't remembered; the chat itself still works exactly as
+before (see get_current_user_id_optional's docstring). The frontend still
+sends the whole message history on every request — this endpoint doesn't
+read history back from the database, it only writes to it; restoring a
+past conversation on page load is a direct frontend read of
+public.messages (frontend/src/lib/chat/useChatHistory.ts), the same way
+profiles are read directly rather than through a backend endpoint.
 
 System prompt selection: if the request includes `age`, we build a
 per-turn, age-appropriate prompt via `build_system_prompt` (only the
@@ -12,11 +20,13 @@ services/ai/prompt_loader.py). If `age` is omitted — the current frontend
 doesn't send it yet — we fall back to the flat `DOST_SYSTEM_PROMPT` from
 Phase 2, so existing callers are unaffected.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.v1.schemas.chat import ChatRequest, ChatResponse
 from services.ai import ChatMessage, PromptUser, build_system_prompt, get_provider
 from services.ai.personality import DOST_SYSTEM_PROMPT
+from services.auth import get_current_user_id_optional
+from services.memory import MemoryError, save_turn
 
 router = APIRouter(tags=["chat"])
 
@@ -35,7 +45,10 @@ def _resolve_system_prompt(request: ChatRequest) -> str:
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    auth_user_id: str | None = Depends(get_current_user_id_optional),
+) -> ChatResponse:
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
@@ -47,5 +60,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
         reply = await provider.send_message(messages, system_prompt=system_prompt)
     except Exception as exc:  # noqa: BLE001 — surface as a clean 502, not a stack trace
         raise HTTPException(status_code=502, detail=f"AI provider error: {exc}") from exc
+
+    if auth_user_id is not None:
+        # Best-effort: a save failure shouldn't turn a reply DOST already
+        # generated into a 500 — the user still gets their answer, it just
+        # might not be remembered next time.
+        try:
+            save_turn(auth_user_id, request.messages[-1].content, reply)
+        except MemoryError:
+            pass
 
     return ChatResponse(reply=reply)

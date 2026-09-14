@@ -31,14 +31,21 @@ a future service (say, `services/voice`) can be developed, tested, and reasoned 
   remember to do this itself.
 - The backend's `services/auth/verify.py` establishes the shape for protected routes (verify the
   Supabase JWT → get `auth_user_id`) but isn't attached to any route yet, since there are no protected
-  backend routes in Phase 1.
+  backend routes in Phase 1. Phase 3 adds `get_current_user_id_optional`, a non-raising variant used by
+  `/chat` so an unauthenticated caller still gets a reply — it just isn't remembered.
 
-## What's deliberately NOT here yet
+## What's here now vs. still deliberately not
 
-AI chat, voice/Speechma, memory, communication coach, learning engine, motivation/gamification, admin
-dashboard, daily challenges — all of these are `services/<name>` stub packages with a docstring and
+AI chat, voice/Speechma, and chat memory (the raw transcript only — see below) are built. Communication
+coach, learning engine, motivation/gamification, admin dashboard, daily challenges are still
+`services/<name>` stub packages with a docstring and
 nothing else. Wiring one in later means: build the logic in its `services/` package, add a route in
 `backend/app/api/v1/`, register it in `router.py`, and add a screen in `frontend/src/app/(app)/`.
+
+Chat memory (`services/memory/store.py`) is deliberately narrow: it persists the raw transcript
+(`public.messages`, `database/migrations/0003_messages.sql`) so a reload doesn't lose the conversation
+and it's identical to what the frontend already sends the AI provider — it does **not** yet distill or
+summarize anything (no "remembers you like hiking," no cross-session facts). That's still future work.
 
 ## Deployment target (not yet deployed)
 

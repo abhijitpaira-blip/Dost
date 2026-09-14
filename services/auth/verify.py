@@ -54,3 +54,34 @@ def get_current_user_id(authorization: str = Header(default="")) -> str:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing subject")
 
     return user_id
+
+
+def get_current_user_id_optional(authorization: str = Header(default="")) -> str | None:
+    """
+    Same verification as get_current_user_id, but returns None instead of
+    raising when the header is missing or the token is invalid, rather
+    than rejecting the request outright.
+
+    First use: backend/app/api/v1/chat.py, so chat keeps working exactly
+    as before (no auth at all) for any caller that doesn't send a token —
+    existing tests included — while a signed-in frontend request gets its
+    turn saved to services.memory. "Best effort, only when we know who's
+    asking" mirrors how age/onboarding_complete are optional on
+    ChatRequest, rather than a hard requirement of that endpoint.
+    """
+    if not authorization.startswith("Bearer ") or not SUPABASE_JWT_SECRET:
+        return None
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    except JWTError:
+        return None
+
+    user_id = payload.get("sub")
+    return user_id if isinstance(user_id, str) and user_id else None

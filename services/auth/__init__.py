@@ -7,6 +7,6 @@ password reset, OTP and social login are all handled by Supabase Auth itself
 on the frontend (see frontend/src/lib/supabase) — this package is for the
 backend to trust *who* is calling it.
 """
-from .verify import get_current_user_id
+from .verify import get_current_user_id, get_current_user_id_optional
 
-__all__ = ["get_current_user_id"]
+__all__ = ["get_current_user_id", "get_current_user_id_optional"]
