@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +10,14 @@ class ChatRequestMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[ChatRequestMessage]
+
+    # Both optional and both None by default, so a request that omits them
+    # (e.g. the existing Phase 2 frontend, or test_chat.py) keeps getting
+    # the flat DOST_SYSTEM_PROMPT fallback unchanged — see chat.py.
+    # Once the frontend knows the user's age (post-onboarding, from the
+    # profiles table), it should start sending `age` on every request.
+    age: Optional[int] = Field(default=None, ge=5, le=120)
+    onboarding_complete: Optional[bool] = None
 
 
 class ChatResponse(BaseModel):
