@@ -44,7 +44,9 @@ def get_current_user_id(authorization: str = Header(default="")) -> str:
             detail="SUPABASE_JWT_SECRET is not configured",
         )
 
-    token = authorization.removeprefix("Bearer ").strip()
+    # Slicing, not str.removeprefix(): that method needs Python 3.9+, and
+    # this repo's Python predates that too (see the str | None notes above).
+    token = authorization[len("Bearer "):].strip()
 
     try:
         payload = jwt.decode(
@@ -79,7 +81,8 @@ def get_current_user_id_optional(authorization: str = Header(default="")) -> Opt
     if not authorization.startswith("Bearer ") or not SUPABASE_JWT_SECRET:
         return None
 
-    token = authorization.removeprefix("Bearer ").strip()
+    # Slicing, not str.removeprefix(): see the comment in get_current_user_id.
+    token = authorization[len("Bearer "):].strip()
     try:
         payload = jwt.decode(
             token,
