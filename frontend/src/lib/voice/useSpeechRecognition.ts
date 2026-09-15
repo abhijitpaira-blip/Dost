@@ -37,9 +37,11 @@ declare global {
   }
 }
 
-// Matches the three languages services/ai/prompts/core.md supports.
+// Matches the three languages services/ai/prompts/core.md supports — keep
+// in sync with speak.ts's copy of this table (see its comment on why
+// "english" is en-IN, not en-US).
 const LANGUAGE_LOCALES: Record<string, string> = {
-  english: "en-US",
+  english: "en-IN",
   hindi: "hi-IN",
   bengali: "bn-IN",
 };
@@ -65,7 +67,7 @@ export function useSpeechRecognition(language: string = "english") {
 
       setError(null);
       const recognition = new Ctor();
-      recognition.lang = LANGUAGE_LOCALES[language.toLowerCase()] ?? "en-US";
+      recognition.lang = LANGUAGE_LOCALES[language.toLowerCase()] ?? "en-IN";
       recognition.interimResults = false;
       recognition.continuous = false;
 

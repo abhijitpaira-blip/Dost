@@ -18,8 +18,11 @@
 
 // Matches the three languages services/ai/prompts/core.md supports —
 // keep in sync with useSpeechRecognition.ts's copy of this table.
+// "english" maps to en-IN (Indian English), not en-US: DOST's users are in
+// India, and an American accent read as noticeably wrong for them — see
+// pickVoice() below for what happens when no en-IN voice exists locally.
 const LANGUAGE_LOCALES: Record<string, string> = {
-  english: "en-US",
+  english: "en-IN",
   hindi: "hi-IN",
   bengali: "bn-IN",
 };
