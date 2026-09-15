@@ -47,6 +47,12 @@ Chat memory (`services/memory/store.py`) is deliberately narrow: it persists the
 and it's identical to what the frontend already sends the AI provider — it does **not** yet distill or
 summarize anything (no "remembers you like hiking," no cross-session facts). That's still future work.
 
+The Home screen (`frontend/src/app/(app)/dashboard/page.tsx`) greets the user by name and shows a
+genuine activity summary — how many messages they've exchanged and when they last talked, read directly
+from `public.messages` the same way `useChatHistory.ts` does — plus a CTA into `/chat`. It is not a
+dashboard for the coach/learning/motivation features yet; those still land on this same screen via
+`BottomNav`'s placeholder links until they exist.
+
 ## Deployment target (not yet deployed)
 
 - Frontend → Vercel (`frontend/` as the project root)
