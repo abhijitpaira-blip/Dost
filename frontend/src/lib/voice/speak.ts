@@ -60,12 +60,24 @@ function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
+// Browsers typically expose two kinds of voice for the same locale: the
+// OS's own local voice (SpeechSynthesisVoice.localService === true — e.g.
+// Windows' legacy SAPI voices like "Microsoft David/Zira", which read as
+// robotic) and, in Chrome, a network/cloud voice (localService === false —
+// Google's voices, noticeably more natural). Given a choice, prefer the
+// network one; only fall back to local when it's the only option for that
+// language on this device.
 function pickVoice(voices: SpeechSynthesisVoice[], locale: string): SpeechSynthesisVoice | undefined {
   const lower = locale.toLowerCase();
-  const exact = voices.find((v) => v.lang.toLowerCase() === lower);
-  if (exact) return exact;
   const languagePrefix = lower.split("-")[0];
-  return voices.find((v) => v.lang.toLowerCase().startsWith(languagePrefix));
+
+  const exactMatches = voices.filter((v) => v.lang.toLowerCase() === lower);
+  const candidates = exactMatches.length > 0
+    ? exactMatches
+    : voices.filter((v) => v.lang.toLowerCase().startsWith(languagePrefix));
+
+  if (candidates.length === 0) return undefined;
+  return candidates.find((v) => !v.localService) ?? candidates[0];
 }
 
 /**
