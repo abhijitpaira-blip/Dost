@@ -3,13 +3,17 @@ Assembles DOST's system prompt for a given user/turn, instead of sending one
 monolithic document (or, since Phase 2, the single flat `DOST_SYSTEM_PROMPT`
 in `personality.py`) on every request regardless of who's asking.
 
-`services/ai/prompts/` holds three source files:
+`services/ai/prompts/` holds these source files:
   - core.md                  — always included (identity, safety, response
                                 style, scope/boundaries, etc.)
   - age_bands.md              — one delimited block per age band; only the
                                 block matching the user's own band is used
   - onboarding_and_consent.md — used only while the user hasn't finished
                                 first-run onboarding
+  - communication_coach.md    — appended only when the caller sets
+                                PromptUser.coach_scenario (Communication
+                                Coach mode — see backend/app/api/v1/chat.py
+                                and frontend's /coach screen)
 
 Relationship to `personality.py`: `DOST_SYSTEM_PROMPT` there is the
 Phase 2 MVP prompt and stays as the fallback for a request that doesn't
@@ -68,6 +72,10 @@ class PromptUser:
     onboarding_complete: bool
     age: int | None = None
     age_band: str | None = None
+    # Non-empty -> Communication Coach mode: communication_coach.md is
+    # appended, plus a block naming this specific scenario. See
+    # services/ai/prompts/communication_coach.md for what that mode does.
+    coach_scenario: str | None = None
 
     def resolved_age_band(self) -> str:
         if self.age_band:
@@ -98,6 +106,11 @@ def _read_onboarding() -> str:
 
 
 @lru_cache(maxsize=1)
+def _read_communication_coach() -> str:
+    return (PROMPTS_DIR / "communication_coach.md").read_text(encoding="utf-8")
+
+
+@lru_cache(maxsize=1)
 def _age_band_blocks() -> dict[str, str]:
     raw = (PROMPTS_DIR / "age_bands.md").read_text(encoding="utf-8")
     blocks = {match.group("id"): match.group("body").strip() for match in _BLOCK_PATTERN.finditer(raw)}
@@ -125,6 +138,9 @@ def build_system_prompt(user: PromptUser) -> str:
       once onboarding_complete is True, that file is never sent again.
     - Otherwise includes exactly one age-band block, resolved from
       user.age_band if set, else derived from user.age.
+    - Appends communication_coach.md plus the scenario itself, but only
+      when user.coach_scenario is set AND onboarding is complete — a
+      coach practice roleplay is not something to open mid-onboarding.
 
     Callers are still responsible for actually gating account creation on
     guardian consent for minors (see onboarding_and_consent.md §1) — this
@@ -136,5 +152,14 @@ def build_system_prompt(user: PromptUser) -> str:
         parts.append(_read_onboarding())
     else:
         parts.append(load_age_band(user.resolved_age_band()))
+
+        if user.coach_scenario:
+            parts.append(_read_communication_coach())
+            parts.append(
+                "## CURRENT PRACTICE SCENARIO\n\n"
+                f"The user wants to practice this conversation: {user.coach_scenario}\n\n"
+                "Begin by playing the counterpart character in this scenario "
+                "naturally — don't re-explain the exercise to the user first."
+            )
 
     return "\n\n".join(parts)

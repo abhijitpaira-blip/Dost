@@ -36,11 +36,12 @@ a future service (say, `services/voice`) can be developed, tested, and reasoned 
 
 ## What's here now vs. still deliberately not
 
-AI chat, voice/Speechma, chat memory (the raw transcript only — see below), and a deterministic safety
-net (see below) are built. Communication coach, learning engine, motivation/gamification, admin
-dashboard, daily challenges are still `services/<name>` stub packages with a docstring and
-nothing else. Wiring one in later means: build the logic in its `services/` package, add a route in
-`backend/app/api/v1/`, register it in `router.py`, and add a screen in `frontend/src/app/(app)/`.
+AI chat, voice/Speechma, chat memory (the raw transcript only — see below), a deterministic safety
+net (see below), and Communication Coach (see below) are built. Learning engine, motivation/gamification
+beyond the daily streak, admin dashboard, and daily challenges are still `services/<name>` stub packages
+with a docstring and nothing else. Wiring one in later means: build the logic in its `services/` package,
+add a route in `backend/app/api/v1/`, register it in `router.py`, and add a screen in
+`frontend/src/app/(app)/`.
 
 `services/safety` is the one exception to "still a stub": `core.md`'s Section 9 already instructs the AI
 to respond to serious distress with care and point toward real support, but prompt-following can be
@@ -60,8 +61,9 @@ summarize anything (no "remembers you like hiking," no cross-session facts). Tha
 The Home screen (`frontend/src/app/(app)/dashboard/page.tsx`) greets the user by name and shows a
 genuine activity summary — how many messages they've exchanged, when they last talked, and (as of the
 daily streak below) a real streak count — read directly from `public.messages` the same way
-`useChatHistory.ts` does — plus a CTA into `/chat`. It is not a dashboard for the coach/learning/motivation
-features yet; those still land on this same screen via `BottomNav`'s placeholder links until they exist.
+`useChatHistory.ts` does — plus a CTA into `/chat`. It is not a dashboard for every feature yet; anything
+still a stub (learning, admin, daily challenges) lands on this same screen via `BottomNav`'s placeholder
+links until it exists for real.
 
 The daily streak (`frontend/src/lib/chat/streak.ts`) is the first genuinely persisted piece of core.md's
 Section 10 (gamification) — until now the AI could only ever *talk about* streaks in a reply, nothing was
@@ -70,6 +72,19 @@ messages) that have at least one message, computed server-side in `dashboard/pag
 clock rather than the user's own timezone — an acceptable tradeoff for a motivational number, not
 something to build precise logic (reminders, notifications) on top of without revisiting that. No
 leaderboard, no penalty for a missed day, per core.md's existing gamification rule.
+
+Communication Coach (`services/ai/prompts/communication_coach.md`, `frontend/src/app/(app)/coach/page.tsx`)
+is a practice-conversation mode, not a separate backend feature: the frontend's `/coach` screen sends the
+same `/api/v1/chat` request shape as normal chat, plus a `scenario` string describing what the user wants
+to practice (e.g. "asking my manager for a raise"). When `scenario` is present, `build_system_prompt`
+appends `communication_coach.md` and a block naming that scenario, on top of — never instead of — `core.md`
+and the user's age-band block, so the always-on identity/safety/scope rules and the safety net above keep
+applying unchanged during roleplay. DOST plays a realistic counterpart character (calibrated to the traits
+the user describes, redirecting a request to play a *named real public figure* to a generic version of that
+role instead), then switches to concrete feedback when asked. Coach turns are deliberately **not** saved to
+`public.messages` — mixing a practiced argument with a "strict boss" character into the same transcript the
+Home screen, streak, and `/chat` history all read from would be confusing — so a practice session lives only
+in the browser tab; a dedicated coach-history table is possible future work, not built now.
 
 ## Deployment target (not yet deployed)
 

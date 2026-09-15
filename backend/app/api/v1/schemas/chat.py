@@ -19,6 +19,14 @@ class ChatRequest(BaseModel):
     age: Optional[int] = Field(default=None, ge=5, le=120)
     onboarding_complete: Optional[bool] = None
 
+    # Non-empty -> Communication Coach mode for this turn (see
+    # services/ai/prompts/communication_coach.md and frontend's /coach
+    # screen): the user's own description of the conversation they want
+    # to practice, e.g. "asking my manager for a raise". None/omitted ->
+    # ordinary companion chat, unchanged. Coach turns are NOT persisted to
+    # public.messages — see chat.py's docstring for why.
+    scenario: Optional[str] = Field(default=None, max_length=500)
+
 
 class ChatResponse(BaseModel):
     reply: str

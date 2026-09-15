@@ -200,6 +200,55 @@ def test_chat_does_not_double_append_when_reply_already_has_resources(monkeypatc
     assert "14416" not in reply  # the AI's own reply was enough; footer skipped
 
 
+def test_chat_with_scenario_uses_coach_prompt_and_does_not_save(monkeypatch):
+    """A request with `scenario` set (Communication Coach mode) must build a
+    prompt that includes the coach content + the scenario text, and must
+    NOT call save_turn even with a valid auth header — see chat.py's
+    docstring for why coach turns are deliberately not persisted."""
+    app.dependency_overrides = {}
+    get_provider.cache_clear()
+    fake = FakeProvider()
+    monkeypatch.setattr("app.api.v1.chat.get_provider", lambda: fake)
+    monkeypatch.setattr("services.auth.verify.SUPABASE_JWT_SECRET", TEST_JWT_SECRET)
+    save_calls = []
+    monkeypatch.setattr("app.api.v1.chat.save_turn", lambda *a, **kw: save_calls.append((a, kw)))
+
+    response = client.post(
+        "/api/v1/chat",
+        json={
+            "messages": [{"role": "user", "content": "Let's start"}],
+            "age": 30,
+            "scenario": "asking my manager for a raise",
+        },
+        headers={"Authorization": _bearer_token("user-123")},
+    )
+
+    assert response.status_code == 200
+    assert "Communication Coach Mode" in fake.last_system_prompt
+    assert "asking my manager for a raise" in fake.last_system_prompt
+    assert save_calls == []
+
+
+def test_chat_without_scenario_still_saves_with_valid_auth(monkeypatch):
+    """Sanity check for the other side of the persistence gate: `age` present
+    but no `scenario` -> ordinary age-band chat, still saved as before."""
+    app.dependency_overrides = {}
+    get_provider.cache_clear()
+    monkeypatch.setattr("app.api.v1.chat.get_provider", lambda: FakeProvider())
+    monkeypatch.setattr("services.auth.verify.SUPABASE_JWT_SECRET", TEST_JWT_SECRET)
+    save_calls = []
+    monkeypatch.setattr("app.api.v1.chat.save_turn", lambda *a, **kw: save_calls.append((a, kw)))
+
+    response = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "Hi DOST"}], "age": 30},
+        headers={"Authorization": _bearer_token("user-123")},
+    )
+
+    assert response.status_code == 200
+    assert len(save_calls) == 1
+
+
 def test_chat_save_failure_does_not_break_the_reply(monkeypatch):
     """save_turn raising MemoryError must not turn an already-generated
     reply into a 500 — see chat.py's try/except around it."""

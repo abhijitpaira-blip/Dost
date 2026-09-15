@@ -20,6 +20,20 @@ services/ai/prompt_loader.py). If `age` is omitted — the current frontend
 doesn't send it yet — we fall back to the flat `DOST_SYSTEM_PROMPT` from
 Phase 2, so existing callers are unaffected.
 
+Communication Coach mode: if the request also includes a non-empty
+`scenario`, build_system_prompt appends communication_coach.md and a
+block naming that scenario, so the AI plays a practice-conversation
+counterpart instead of its usual companion role — see
+services/ai/prompts/communication_coach.md and frontend's /coach screen.
+This requires `age` to be present (coach mode has no flat-fallback path);
+the /coach screen always sends both together. Coach turns are
+deliberately NOT persisted to public.messages — mixing roleplay
+transcripts into the same history the Home screen/streak and normal
+/chat page read from would be confusing (a practiced argument with a
+"strict boss" character showing up as if it were a real conversation).
+A dedicated coach-history table is future work if that turns out to be
+wanted; for now a practice session lives only in the browser tab.
+
 Safety net: after the AI replies, the user's own latest message is
 scanned by services.safety.detect_crisis_signal() for explicit crisis
 language. core.md's Section 9 already asks the AI itself to respond with
@@ -53,6 +67,7 @@ def _resolve_system_prompt(request: ChatRequest) -> str:
         # Age given but onboarding status not stated: assume onboarding is
         # done rather than silently reopening the onboarding flow.
         onboarding_complete=True if request.onboarding_complete is None else request.onboarding_complete,
+        coach_scenario=request.scenario,
     )
     return build_system_prompt(user)
 
@@ -84,7 +99,9 @@ async def chat(
     if detect_crisis_signal(latest_user_message) and not reply_already_has_resources(reply):
         reply = f"{reply}{CRISIS_RESOURCE_FOOTER}"
 
-    if auth_user_id is not None:
+    # Coach practice is deliberately ephemeral — see this file's docstring
+    # for why it doesn't go into the same transcript as real conversations.
+    if auth_user_id is not None and not request.scenario:
         # Best-effort: a save failure shouldn't turn a reply DOST already
         # generated into a 500 — the user still gets their answer, it just
         # might not be remembered next time.

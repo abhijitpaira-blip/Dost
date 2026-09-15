@@ -76,3 +76,29 @@ def test_core_always_present():
         prompt = build_system_prompt(user)
         assert "You are DOST" in prompt
         assert "trusted adult they feel safe with" in prompt  # corrected safety line
+
+
+def test_build_system_prompt_without_coach_scenario_excludes_coach_content():
+    user = PromptUser(onboarding_complete=True, age=30, coach_scenario=None)
+    prompt = build_system_prompt(user)
+    assert "Communication Coach Mode" not in prompt
+    assert "CURRENT PRACTICE SCENARIO" not in prompt
+
+
+def test_build_system_prompt_with_coach_scenario_appends_coach_content_and_scenario():
+    user = PromptUser(onboarding_complete=True, age=30, coach_scenario="asking my manager for a raise")
+    prompt = build_system_prompt(user)
+    assert "Communication Coach Mode" in prompt
+    assert "CURRENT PRACTICE SCENARIO" in prompt
+    assert "asking my manager for a raise" in prompt
+    assert "Growth Partner" in prompt  # age-band content still included underneath
+
+
+def test_build_system_prompt_coach_scenario_suppressed_during_onboarding():
+    """A coach_scenario set mid-onboarding must not open roleplay early —
+    onboarding still takes priority (see build_system_prompt's docstring)."""
+    user = PromptUser(onboarding_complete=False, age=11, coach_scenario="asking my manager for a raise")
+    prompt = build_system_prompt(user)
+    assert "FIRST SCREEN" in prompt
+    assert "Communication Coach Mode" not in prompt
+    assert "CURRENT PRACTICE SCENARIO" not in prompt

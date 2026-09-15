@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Home and Talk are wired to real screens as of Phase 2. Coach and You are
-// still placeholders for later phases.
+// Home, Talk, and Coach are wired to real screens. You is still a
+// placeholder for a later phase.
 const items = [
   { href: "/dashboard", label: "Home" },
   { href: "/chat", label: "Talk" },
-  { href: "/dashboard", label: "Coach" },
+  { href: "/coach", label: "Coach" },
   { href: "/dashboard", label: "You" },
 ];
 
