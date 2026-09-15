@@ -19,6 +19,16 @@ matching age-band block is sent, not all of them — see
 services/ai/prompt_loader.py). If `age` is omitted — the current frontend
 doesn't send it yet — we fall back to the flat `DOST_SYSTEM_PROMPT` from
 Phase 2, so existing callers are unaffected.
+
+Safety net: after the AI replies, the user's own latest message is
+scanned by services.safety.detect_crisis_signal() for explicit crisis
+language. core.md's Section 9 already asks the AI itself to respond with
+care in that situation, but prompt-following can be imperfect — this is a
+deterministic backstop, not a replacement, that appends a verified
+helpline footer (services.safety.CRISIS_RESOURCE_FOOTER) when it fires and
+the AI's own reply didn't already include the numbers. The persisted
+transcript (services.memory.save_turn) stores this final, footer-included
+reply — it's what the user actually saw.
 """
 from typing import Optional
 
@@ -29,6 +39,7 @@ from services.ai import ChatMessage, PromptUser, build_system_prompt, get_provid
 from services.ai.personality import DOST_SYSTEM_PROMPT
 from services.auth import get_current_user_id_optional
 from services.memory import MemoryError, save_turn
+from services.safety import CRISIS_RESOURCE_FOOTER, detect_crisis_signal, reply_already_has_resources
 
 router = APIRouter(tags=["chat"])
 
@@ -69,12 +80,16 @@ async def chat(
     except Exception as exc:  # noqa: BLE001 — surface as a clean 502, not a stack trace
         raise HTTPException(status_code=502, detail=f"AI provider error: {exc}") from exc
 
+    latest_user_message = request.messages[-1].content
+    if detect_crisis_signal(latest_user_message) and not reply_already_has_resources(reply):
+        reply = f"{reply}{CRISIS_RESOURCE_FOOTER}"
+
     if auth_user_id is not None:
         # Best-effort: a save failure shouldn't turn a reply DOST already
         # generated into a 500 — the user still gets their answer, it just
         # might not be remembered next time.
         try:
-            save_turn(auth_user_id, request.messages[-1].content, reply)
+            save_turn(auth_user_id, latest_user_message, reply)
         except MemoryError:
             pass
 

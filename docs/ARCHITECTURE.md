@@ -36,11 +36,21 @@ a future service (say, `services/voice`) can be developed, tested, and reasoned 
 
 ## What's here now vs. still deliberately not
 
-AI chat, voice/Speechma, and chat memory (the raw transcript only — see below) are built. Communication
-coach, learning engine, motivation/gamification, admin dashboard, daily challenges are still
-`services/<name>` stub packages with a docstring and
+AI chat, voice/Speechma, chat memory (the raw transcript only — see below), and a deterministic safety
+net (see below) are built. Communication coach, learning engine, motivation/gamification, admin
+dashboard, daily challenges are still `services/<name>` stub packages with a docstring and
 nothing else. Wiring one in later means: build the logic in its `services/` package, add a route in
 `backend/app/api/v1/`, register it in `router.py`, and add a screen in `frontend/src/app/(app)/`.
+
+`services/safety` is the one exception to "still a stub": `core.md`'s Section 9 already instructs the AI
+to respond to serious distress with care and point toward real support, but prompt-following can be
+imperfect, so `chat.py` also runs the user's latest message through `detect_crisis_signal()` — a narrow,
+regex-based keyword net over explicit self-harm/suicide phrasing (English fairly thoroughly; Hindi/Bengali
+limited to the single verified word for "suicide" plus common Hinglish spellings — indirect or slang
+phrasing in any language is a known, real gap, not a guarantee). When it fires and the AI's own reply
+didn't already mention a helpline, a footer with verified government helpline numbers (Tele MANAS, KIRAN,
+and 112) is appended — never a replacement for the AI's own response, only a deterministic backstop under
+it. See `services/safety/__init__.py`'s docstring for the full scope and honest limitations.
 
 Chat memory (`services/memory/store.py`) is deliberately narrow: it persists the raw transcript
 (`public.messages`, `database/migrations/0003_messages.sql`) so a reload doesn't lose the conversation

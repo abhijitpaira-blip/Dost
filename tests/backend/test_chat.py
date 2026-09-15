@@ -146,6 +146,60 @@ def test_chat_with_invalid_auth_header_still_replies_without_saving(monkeypatch)
     assert save_calls == []
 
 
+def test_chat_appends_crisis_footer_when_user_message_has_crisis_language(monkeypatch):
+    """services.safety's deterministic backstop: even though FakeProvider's
+    reply has nothing to do with the resource footer, an explicit crisis
+    phrase in the user's own message must still get it appended."""
+    app.dependency_overrides = {}
+    get_provider.cache_clear()
+    monkeypatch.setattr("app.api.v1.chat.get_provider", lambda: FakeProvider())
+
+    response = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "I want to kill myself"}]},
+    )
+
+    assert response.status_code == 200
+    reply = response.json()["reply"]
+    assert reply.startswith("Hey, good to hear from you.")
+    assert "14416" in reply
+    assert "112" in reply
+
+
+def test_chat_does_not_append_footer_for_ordinary_messages(monkeypatch):
+    app.dependency_overrides = {}
+    get_provider.cache_clear()
+    monkeypatch.setattr("app.api.v1.chat.get_provider", lambda: FakeProvider())
+
+    response = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "How was your day?"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == "Hey, good to hear from you."
+
+
+def test_chat_does_not_double_append_when_reply_already_has_resources(monkeypatch):
+    class ProviderThatAlreadyMentionsHelplines:
+        async def send_message(self, messages, system_prompt):
+            return "That sounds really hard. Please call 1800-599-0019 (KIRAN) any time."
+
+    app.dependency_overrides = {}
+    get_provider.cache_clear()
+    monkeypatch.setattr("app.api.v1.chat.get_provider", lambda: ProviderThatAlreadyMentionsHelplines())
+
+    response = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "I want to end my life"}]},
+    )
+
+    assert response.status_code == 200
+    reply = response.json()["reply"]
+    assert reply.count("1800-599-0019") == 1
+    assert "14416" not in reply  # the AI's own reply was enough; footer skipped
+
+
 def test_chat_save_failure_does_not_break_the_reply(monkeypatch):
     """save_turn raising MemoryError must not turn an already-generated
     reply into a 500 — see chat.py's try/except around it."""
