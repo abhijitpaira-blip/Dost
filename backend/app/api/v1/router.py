@@ -1,11 +1,12 @@
 from fastapi import APIRouter
 
-from app.api.v1 import chat, health, voice
+from app.api.v1 import admin, chat, health, voice
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
 api_router.include_router(chat.router)
 api_router.include_router(voice.router)
+api_router.include_router(admin.router)
 
 # Chat memory (Phase 3) doesn't have its own router — persistence is
 # wired directly into chat.py's /chat route (services.memory.save_turn),

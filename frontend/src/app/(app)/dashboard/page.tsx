@@ -112,8 +112,11 @@ export default async function DashboardPage() {
       </Link>
 
       <p className="font-body text-xs text-ink-500">
-        Communication coaching, daily challenges, and progress tracking are
-        on their way — for now, Talk is where DOST lives.
+        Want to practice a tricky conversation first?{" "}
+        <Link href="/coach" className="text-clay-500 underline">
+          Try Coach
+        </Link>
+        . Daily challenges and progress tracking are still on their way.
       </p>
     </div>
   );

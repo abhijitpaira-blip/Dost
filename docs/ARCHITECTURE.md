@@ -37,11 +37,11 @@ a future service (say, `services/voice`) can be developed, tested, and reasoned 
 ## What's here now vs. still deliberately not
 
 AI chat, voice/Speechma, chat memory (the raw transcript only — see below), a deterministic safety
-net (see below), and Communication Coach (see below) are built. Learning engine, motivation/gamification
-beyond the daily streak, admin dashboard, and daily challenges are still `services/<name>` stub packages
-with a docstring and nothing else. Wiring one in later means: build the logic in its `services/` package,
-add a route in `backend/app/api/v1/`, register it in `router.py`, and add a screen in
-`frontend/src/app/(app)/`.
+net (see below), Communication Coach (see below), and an admin dashboard (see below) are built. Learning
+engine and motivation/gamification beyond the daily streak (e.g. daily challenges) are still
+`services/<name>` stub packages with a docstring and nothing else. Wiring one in later means: build the
+logic in its `services/` package, add a route in `backend/app/api/v1/`, register it in `router.py`, and
+add a screen in `frontend/src/app/(app)/`.
 
 `services/safety` is the one exception to "still a stub": `core.md`'s Section 9 already instructs the AI
 to respond to serious distress with care and point toward real support, but prompt-following can be
@@ -85,6 +85,20 @@ role instead), then switches to concrete feedback when asked. Coach turns are de
 `public.messages` — mixing a practiced argument with a "strict boss" character into the same transcript the
 Home screen, streak, and `/chat` history all read from would be confusing — so a practice session lives only
 in the browser tab; a dedicated coach-history table is possible future work, not built now.
+
+The admin dashboard (`services/admin/stats.py`, `backend/app/api/v1/admin.py`,
+`frontend/src/app/(app)/admin/page.tsx`) is a handful of aggregate usage counts for the app owner — total
+users, total messages, messages today, distinct users active in the last 7 days, new signups in the last 7
+days — not a general analytics/BI tool. It reads with the service-role Supabase client (the same one
+`services/memory/store.py` uses) because these are cross-user counts that profiles' and messages' RLS
+policies (scoped to "a user may only ever see their own row") should never need to allow directly from the
+frontend. Gating who can call it is a new dependency, `services.auth.get_current_admin_user_id`: same JWT
+verification as every other protected route, plus a check that the caller's `auth_user_id` (never an email —
+see this doc's Auth model) is in the `ADMIN_USER_IDS` env var. That's an env var the owner sets, not a
+database column/flag — for a single-owner app it needs no migration or extra RLS policy; see
+`backend/.env.example` for how to find your own Supabase Auth UUID. `/admin` has no link anywhere in the
+app's nav on purpose (it's not in `BottomNav`) — it's opened directly by whoever's allow-listed, not a
+feature meant for the rest of the family to stumble into.
 
 ## Deployment target (not yet deployed)
 

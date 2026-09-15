@@ -18,6 +18,15 @@ from jose import JWTError, jwt
 # same .env, so the variable is available either way.
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
+# Comma-separated Supabase Auth UUIDs (auth_user_id — auth.users.id, the
+# same identity docs/ARCHITECTURE.md's "Auth model" insists on everywhere
+# else: never an email, never name+age) allowed to call admin-only routes.
+# Deliberately an env var the owner sets, not a database column/flag: for a
+# single-owner app this needs no migration or extra RLS policy, and it's
+# read here (rather than passed in) for the same reason SUPABASE_JWT_SECRET
+# is — see backend/.env.example for how to find your own UUID.
+ADMIN_USER_IDS = os.environ.get("ADMIN_USER_IDS", "")
+
 # Optional[str], not `str | None`: this file has no
 # `from __future__ import annotations`, and this repo's Python is older
 # than 3.10, where a bare `X | None` annotation raises a TypeError the
@@ -95,3 +104,18 @@ def get_current_user_id_optional(authorization: str = Header(default="")) -> Opt
 
     user_id = payload.get("sub")
     return user_id if isinstance(user_id, str) and user_id else None
+
+
+def get_current_admin_user_id(authorization: str = Header(default="")) -> str:
+    """
+    FastAPI dependency for admin-only routes: same verification as
+    get_current_user_id (401 if the bearer token is missing or invalid),
+    plus a 403 if the verified caller isn't in the ADMIN_USER_IDS
+    allow-list above. First (and currently only) use:
+    backend/app/api/v1/admin.py.
+    """
+    user_id = get_current_user_id(authorization)
+    allowed_ids = {uid.strip() for uid in ADMIN_USER_IDS.split(",") if uid.strip()}
+    if user_id not in allowed_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user_id
