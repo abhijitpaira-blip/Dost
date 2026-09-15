@@ -7,6 +7,7 @@ Not wired into any route yet in Phase 1 (there are no protected routes yet),
 but future protected endpoints depend on `get_current_user_id`.
 """
 import os
+from typing import Optional
 
 from fastapi import Header, HTTPException, status
 from jose import JWTError, jwt
@@ -16,6 +17,12 @@ from jose import JWTError, jwt
 # the other way around (see docs/ARCHITECTURE.md). Both processes load the
 # same .env, so the variable is available either way.
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
+
+# Optional[str], not `str | None`: this file has no
+# `from __future__ import annotations`, and this repo's Python is older
+# than 3.10, where a bare `X | None` annotation raises a TypeError the
+# moment the function is defined (not just when it's used) — see
+# schemas/chat.py's existing `Optional[int]` for the same reason.
 
 
 def get_current_user_id(authorization: str = Header(default="")) -> str:
@@ -56,7 +63,7 @@ def get_current_user_id(authorization: str = Header(default="")) -> str:
     return user_id
 
 
-def get_current_user_id_optional(authorization: str = Header(default="")) -> str | None:
+def get_current_user_id_optional(authorization: str = Header(default="")) -> Optional[str]:
     """
     Same verification as get_current_user_id, but returns None instead of
     raising when the header is missing or the token is invalid, rather

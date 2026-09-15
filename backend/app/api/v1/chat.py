@@ -20,6 +20,8 @@ services/ai/prompt_loader.py). If `age` is omitted — the current frontend
 doesn't send it yet — we fall back to the flat `DOST_SYSTEM_PROMPT` from
 Phase 2, so existing callers are unaffected.
 """
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.v1.schemas.chat import ChatRequest, ChatResponse
@@ -47,7 +49,13 @@ def _resolve_system_prompt(request: ChatRequest) -> str:
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    auth_user_id: str | None = Depends(get_current_user_id_optional),
+    # Optional[str], not `str | None`: this file has no
+    # `from __future__ import annotations`, and this repo's Python
+    # predates 3.10, where FastAPI needs to resolve this exact annotation
+    # to know how to inject the dependency — a bare `X | None` here raised
+    # a TypeError at import time (see the same note in
+    # services/auth/verify.py, and ChatRequest's `Optional[int]` above).
+    auth_user_id: Optional[str] = Depends(get_current_user_id_optional),
 ) -> ChatResponse:
     if not request.messages:
         raise HTTPException(status_code=400, detail="messages must not be empty")
